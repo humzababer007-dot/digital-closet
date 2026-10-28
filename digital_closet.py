@@ -1,15 +1,14 @@
 # language: Python 3.10+, file: digital_closet.py
-# run: pip install streamlit pillow && streamlit run digital_closet.py
+# run: py -m streamlit run digital_closet.py
 
 import streamlit as st
 from PIL import Image
 import json
 import os
 from datetime import datetime
-import random
 
 st.set_page_config(page_title="Digital Closet", page_icon="👗", layout="wide")
-st.title("👗 Digital Closet — AI Outfit Generator")
+st.title("👗 Digital Closet")
 st.caption("Upload your clothes → ask for an outfit → get suggestions from what you already own.")
 
 # ─────────────────────────────────────────────
@@ -50,7 +49,6 @@ with st.sidebar:
     notes = st.text_area("Notes (optional)", height=60)
 
     if st.button("Add item", type="primary") and uploaded and name:
-        # save image
         img = Image.open(uploaded)
         fname = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{name.replace(' ', '_')[:30]}.jpg"
         path = os.path.join(UPLOAD_DIR, fname)
@@ -73,7 +71,7 @@ with st.sidebar:
         st.rerun()
 
 # ─────────────────────────────────────────────
-# MAIN — CLOSET VIEW + OUTFIT GENERATOR
+# MAIN
 # ─────────────────────────────────────────────
 tab1, tab2 = st.tabs(["My Closet", "Generate Outfit"])
 
@@ -108,18 +106,15 @@ with tab2:
         if len(closet) < 2:
             st.warning("Add at least a couple of items first.")
         else:
-            # simple scoring system that mimics the AI
             occasion_l = occasion.lower()
             prefer = [c.strip().lower() for c in prefer_colors.split(",") if c.strip()] if prefer_colors else []
 
             def score(item):
                 s = 0
                 text = (item["name"] + " " + " ".join(item["tags"]) + " " + item["notes"]).lower()
-                # occasion keywords
                 for word in occasion_l.split():
                     if word in text or word in item["category"].lower():
                         s += 2
-                # style match
                 if "formal" in occasion_l or "office" in occasion_l or "interview" in occasion_l:
                     if any(t in item["tags"] for t in ["formal", "elegant", "minimal"]):
                         s += 3
@@ -132,17 +127,14 @@ with tab2:
                 if "rain" in occasion_l or "cold" in occasion_l or "winter" in occasion_l:
                     if item["category"] in ["Outerwear", "Shoes"] or "Winter" in item["season"]:
                         s += 2
-                # color preference
                 if prefer and item["color"] in prefer:
                     s += 2
-                # must include
                 if must_include and must_include.lower() in item["name"].lower():
                     s += 10
                 return s
 
             ranked = sorted(closet, key=score, reverse=True)
 
-            # build a simple outfit: try to pick one of each useful category
             outfit = []
             used_cats = set()
             for item in ranked:
@@ -152,7 +144,6 @@ with tab2:
                     used_cats.add(cat)
                 if len(outfit) >= 4:
                     break
-            # if we only got a dress, still show it
             if not outfit:
                 outfit = ranked[:3]
 
@@ -165,7 +156,3 @@ with tab2:
                         st.image(item["image"], use_container_width=True)
                     st.markdown(f"**{item['name']}**")
                     st.caption(f"{item['category']} · {item['color']}")
-
-            st.markdown("---")
-            st.caption("Scoring is rule-based for now (occasion keywords + tags + color). "
-                       "In a full Alta-style app this would be replaced by a vision + LLM model that also does virtual try-on.")
